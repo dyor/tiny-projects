@@ -43,12 +43,16 @@ Simply open `index.html` in your web browser!
 
 ### On macOS:
 ```bash
-open /Users/mattdyor/Documents/tiny-projects/index.html
+open /Users/mattdyor/DyorProjects/local/tiny-projects/index.html
 ```
+
+The published copy lives at **https://dyor.github.io/tiny-projects/** (GitHub Pages,
+served from `main`). Note that data is kept in `localStorage`, which is scoped to the
+origin: what you add on the Pages URL is not visible to a local copy, and vice versa.
 
 Or serve it with any local static server:
 ```bash
-npx serve /Users/mattdyor/Documents/tiny-projects
+npx serve /Users/mattdyor/DyorProjects/local/tiny-projects
 # or
-python3 -m http.server 8080 --directory /Users/mattdyor/Documents/tiny-projects
+python3 -m http.server 8080 --directory /Users/mattdyor/DyorProjects/local/tiny-projects
 ```
