@@ -1177,16 +1177,86 @@
     /* ============================================================
        Initialization & Storage
        ============================================================ */
-    function init() {
+    async function init() {
       loadTheme();
-      loadData();
+      await loadData();
       setupColorPicker();
       checkAutoUnsnooze();
       render();
       setInterval(checkAutoUnsnooze, 30000);
+      if (backend.remote) setInterval(pollRemote, 3000);
     }
 
-    function loadData() {
+    /* Served by server.js? Then the JSON file on disk is the store, and the MCP
+       server writes the same file. On GitHub Pages /api/data 404s and we fall
+       straight back to localStorage, so the published copy is unaffected. */
+    const backend = { remote: false, version: null };
+
+    async function tryRemoteLoad() {
+      try {
+        const res = await fetch('api/data', { cache: 'no-store' });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function applyPayload(payload) {
+      state.projects = payload.projects || [];
+      state.tasks = payload.tasks || [];
+      backend.version = payload.version ?? null;
+      state.projects.forEach((pr, idx) => {
+        if (typeof pr.rank !== 'number') pr.rank = 100 - (idx * 10);
+      });
+    }
+
+    /* The point of the file backend is that "add these to tiny project" shows up
+       without a refresh, so poll for writes made behind our back. */
+    async function pollRemote() {
+      const payload = await tryRemoteLoad();
+      if (!payload || payload.version === backend.version) return;
+      applyPayload(payload);
+      render();
+    }
+
+    async function saveRemote() {
+      try {
+        const res = await fetch('api/data', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            version: backend.version,
+            projects: state.projects,
+            tasks: state.tasks
+          })
+        });
+        if (res.status === 409) {
+          // Someone (the MCP server) wrote first. Their copy wins; reload it
+          // rather than clobbering it.
+          const payload = await res.json();
+          applyPayload(payload);
+          render();
+          return;
+        }
+        if (res.ok) backend.version = (await res.json()).version;
+      } catch (err) {
+        console.error('Failed to save to the file backend:', err);
+      }
+    }
+
+    async function loadData() {
+      const remote = await tryRemoteLoad();
+      if (remote) {
+        backend.remote = true;
+        applyPayload(remote);
+        const tag = document.querySelector('.app-subtitle, header p');
+        if (tag && !tag.dataset.backendTagged) {
+          tag.dataset.backendTagged = '1';
+          tag.textContent = tag.textContent + ' · local file';
+        }
+        return;
+      }
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -1212,6 +1282,11 @@
     }
 
     function saveData() {
+      if (backend.remote) {
+        saveRemote();
+        updateStats();
+        return;
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         projects: state.projects,
         tasks: state.tasks

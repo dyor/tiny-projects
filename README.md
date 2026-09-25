@@ -56,3 +56,40 @@ npx serve /Users/mattdyor/DyorProjects/local/tiny-projects
 # or
 python3 -m http.server 8080 --directory /Users/mattdyor/DyorProjects/local/tiny-projects
 ```
+
+---
+
+## 🔌 Local file backend + MCP server
+
+By default TinyProjects keeps everything in `localStorage`, which is per-origin and
+unreachable from outside the browser. Run it through `server.js` instead and the store
+becomes a JSON file that both the page and an MCP server can read and write:
+
+```bash
+node server.js            # http://localhost:8777
+```
+
+The page detects the backend (`GET api/data`), shows `· local file` next to the subtitle,
+and polls every 3 seconds — so a task added by the MCP server appears in an open tab
+without a refresh. On GitHub Pages that request 404s and it falls back to `localStorage`,
+so the published copy is unchanged.
+
+Data lives at `~/.tiny-projects/data.json`, deliberately outside this repo, which is
+public. Override with `TINY_PROJECTS_DATA`.
+
+### MCP server
+
+```bash
+claude mcp add -s user tiny-projects -- node /path/to/tiny-projects/mcp/server.js
+```
+
+Then: *"add these to tiny projects"*. Tools: `list`, `add_project`, `add_tasks`,
+`complete_task`, `update_task`, `delete_task`. Tasks are addressed by id or by a unique
+substring of the title; an ambiguous substring returns the candidates rather than
+guessing.
+
+No dependencies — it speaks MCP's JSON-RPC over stdio directly, and `lib/store.js` is the
+single place that touches the file, so the server and the MCP tools cannot disagree about
+its shape. Writes are atomic (temp file + rename) and the browser's `PUT` carries the
+version it loaded, so a save that would clobber an MCP write gets a `409` and reloads
+instead.

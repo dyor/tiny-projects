@@ -1,0 +1,5 @@
+# Personal task data never belongs in this public repo. The store lives at
+# ~/.tiny-projects/data.json; this catches a stray local override.
+data.json
+*.json.tmp
+.DS_Store
